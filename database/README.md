@@ -7,9 +7,9 @@ Provisiona as tabelas DynamoDB do projeto.
 Define as tabelas e seus índices secundários globais (GSIs).
 O nome de cada tabela segue o padrão `fiapx-ENV-NOME-db` (ex: `fiapx-dev-videos-db`).
 
-| Tabela   | GSI            | Chave do GSI |
-|----------|----------------|--------------|
-| `videos` | `userId-index` | `userId`     |
+| Tabela   | Descrição                                         |
+|----------|---------------------------------------------------|
+| `videos` | Armazena informações sobre os vídeos de usuários. |
 
 ## Arquivos de configuração
 
