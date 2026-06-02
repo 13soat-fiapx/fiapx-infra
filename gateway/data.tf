@@ -1,0 +1,30 @@
+# remote states
+
+data "aws_caller_identity" "current" {}
+
+data "terraform_remote_state" "shared" {
+  backend = "s3"
+
+  config = {
+    bucket = "fiapx-tf-${data.aws_caller_identity.current.account_id}"
+    key    = "shared-${var.environment}.tfstate"
+    region = "us-east-1"
+  }
+}
+
+data "terraform_remote_state" "k8s" {
+  backend = "s3"
+
+  config = {
+    bucket = "fiapx-tf-${data.aws_caller_identity.current.account_id}"
+    key    = "k8s-${var.environment}.tfstate"
+    region = "us-east-1"
+  }
+}
+
+# locals
+
+locals {
+  prefix = "${data.terraform_remote_state.shared.outputs.project_name}-${var.environment}"
+  is_dev = var.environment == "dev"
+}
