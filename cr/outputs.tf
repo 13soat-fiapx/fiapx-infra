@@ -7,5 +7,5 @@ output "container_registry_names" {
 }
 
 output "container_registry_uris" {
-  value = [for repo in aws_ecr_repository.container_registry : repo.repository_url]
+  value = { for k, repo in aws_ecr_repository.container_registry : k => repo.repository_url }
 }
