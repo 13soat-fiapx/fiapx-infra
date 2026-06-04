@@ -5,7 +5,7 @@ variable "environment" {
 variable "queue_names" {
   type = list(string)
   default = [
-    "video-submitted",
-    "video-status-changed",
+    "video-processing-requested",
+    "video-processing-completed",
   ]
 }
