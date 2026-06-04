@@ -1,0 +1,74 @@
+name: CI/CD Pipeline
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+      - release
+      - develop
+  pull_request:
+    branches:
+      - main
+      - release
+      - develop
+
+permissions:
+  contents: read
+  actions: read
+  checks: write
+
+jobs:
+  resolve-environment:
+    name: Resolve environment name
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    outputs:
+      environment: ${{ steps.resolve.outputs.environment }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+      - name: Resolve Environment
+        id: resolve
+        uses: ./.github/actions/resolve-environment
+
+  infra-validate:
+    name: Validate infrastructure
+    uses: ./.github/workflows/infra-validate.yml
+
+  infra-apply:
+    name: Apply infrastructure
+    needs:
+      - resolve-environment
+      - infra-validate
+    uses: ./.github/workflows/infra-apply.yml
+    with:
+      environment: ${{ needs.resolve-environment.outputs.environment }}
+    secrets: inherit
+  
+  infra-report:
+    name: Generate report
+    needs:
+      - resolve-environment
+      - infra-apply
+    runs-on: ubuntu-latest
+    environment: ${{ needs.resolve-environment.outputs.environment }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
+          aws-region: ${{ vars.AWS_REGION }}
+      - name: Generate job summary
+        uses: ./.github/actions/job-summary
+        with:
+          title: "Infrastructure Report - ${{ needs.resolve-environment.outputs.environment }}"
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          exclude-job-name: "Generate Report"
+          outputs: |
+            API Gateway: apigatewayv2 get-apis --query "Items[?Name==\'fiapx-${{ needs.resolve-environment.outputs.environment }}-api\'].ApiEndpoint"
+            EKS Cluster: eks describe-cluster --name fiapx-${{ needs.resolve-environment.outputs.environment }}-cluster --query "cluster.endpoint"

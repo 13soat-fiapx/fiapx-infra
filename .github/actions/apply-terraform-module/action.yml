@@ -1,0 +1,39 @@
+name: Apply Module
+description: Apply Terraform module for the resolved environment
+
+inputs:
+  environment:
+    description: Deployment environment (dev|stg|prod)
+    required: true
+  module_name:
+    description: Name (path) of the Terraform module
+    required: true
+  module_path:
+    description: Path to the Terraform module directory (defaults to module_name)
+  lock_timeout:
+    description: Timeout for Terraform state lock (defaults to 3m)
+    default: 3m
+
+runs:
+  using: composite
+  steps:
+    - uses: hashicorp/setup-terraform@v4
+    - id: bucket
+      name: Create bucket for Terraform state
+      shell: bash
+      run: |
+        ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+        aws s3 mb s3://fiapx-tf-${ACCOUNT_ID}
+        echo "BUCKET_NAME=fiapx-tf-${ACCOUNT_ID}" >> $GITHUB_ENV
+    - id: init
+      name: Initialize Terraform
+      shell: bash
+      working-directory: ${{ inputs.module_path || inputs.module_name }}
+      run: terraform init -backend-config="bucket=${BUCKET_NAME}" -backend-config="key=${{ inputs.module_name }}-${{ inputs.environment }}.tfstate"
+    - id: apply
+      name: Apply Terraform module
+      shell: bash
+      working-directory: ${{ inputs.module_path || inputs.module_name }}
+      env:
+        TF_VAR_dd_api_key: ${{ inputs.dd_api_key }}
+      run: terraform apply -var="environment=${{ inputs.environment }}" -auto-approve -lock-timeout=${{ inputs.lock_timeout }}

@@ -1,0 +1,48 @@
+name: ECR Tag Exists
+description: Checks if an image tag already exists in AWS ECR repository
+
+inputs:
+  environment:
+    description: Deployment environment (dev|stg|prod)
+    required: true
+  tag:
+    description: The tag to check
+    default: ${{ github.sha }}
+  aws-region:
+    description: AWS Region
+    required: true
+  service-name:
+    description: The service name to use as suffix for the ECR repository
+    required: true
+
+outputs:
+  image-exists:
+    description: Whether the image exists in ECR
+    value: ${{ steps.check-image.outputs.image-exists }}
+
+runs:
+  using: composite
+  steps:
+    - id: check-image
+      shell: bash
+      run: |
+        REPO_NAME="fiapx-${{ inputs.environment }}/${{ inputs.service-name }}-cr"
+
+        if ! aws ecr describe-repositories \
+          --repository-names "$REPO_NAME" \
+          --region "${{ inputs.aws-region }}" \
+          > /dev/null 2>&1; then
+          echo "::error::Repository '$REPO_NAME' not found. Is '${{ inputs.service-name }}' declared in the 'cr' layer of fiapx-infra?"
+          exit 1
+        fi
+
+        if aws ecr describe-images \
+          --repository-name "$REPO_NAME" \
+          --image-ids imageTag="${{ inputs.tag }}" \
+          --region "${{ inputs.aws-region }}" \
+          > /dev/null 2>&1; then
+          echo "image-exists=true" >> $GITHUB_OUTPUT
+        else
+          echo "image-exists=false" >> $GITHUB_OUTPUT
+        fi
+

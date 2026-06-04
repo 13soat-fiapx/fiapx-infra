@@ -1,0 +1,113 @@
+name: Job Summary
+description: Generates a markdown job summary with step timings and AWS CLI outputs
+
+inputs:
+  title:
+    description: Report title
+    default: Execution Summary
+  outputs:
+    description: |
+      Newline-separated pairs of "Label: aws-cli-subcommand"
+      Example: "ECR Repository: ecr describe-repositories --query ..."
+    required: false
+  github-token:
+    description: GitHub token for fetching job timings
+    required: true
+  exclude-job-name:
+    description: Job name to exclude from the report
+    default: ${{ github.job }}
+
+runs:
+  using: composite
+  steps:
+    - name: Fetch job timings
+      id: timings
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.github-token }}
+      run: |
+        gh api /repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/jobs \
+          | jq --arg job_name "Generate Report" '
+          [.jobs[] | select((.name | ascii_downcase) != ($job_name | ascii_downcase)) | {
+            name: .name,
+            conclusion: .conclusion,
+            duration: (
+              if .started_at != null and .completed_at != null
+              then ((.completed_at | fromdateiso8601) - (.started_at | fromdateiso8601))
+              else null end
+            )
+          }]' > /tmp/jobs.json
+
+    - name: Resolve outputs
+      id: resolve
+      shell: bash
+      run: |
+        echo '{}' > /tmp/report_outputs.json
+
+        while IFS= read -r line; do
+          [[ -z "$line" ]] && continue
+
+          label="${line%%:*}"
+          cmd="${line#*: }"
+
+          value=$(aws $cmd --output text || echo "error")
+
+          jq \
+            --arg k "$label" \
+            --arg v "$value" \
+            '. + {($k): $v}' /tmp/report_outputs.json > /tmp/report_outputs.tmp.json
+          mv /tmp/report_outputs.tmp.json /tmp/report_outputs.json
+
+        done <<< "${{ inputs.outputs }}"
+
+    - name: Write summary
+      shell: bash
+      run: |
+        TITLE="${{ inputs.title }}"
+
+        format_duration() {
+          local secs=$1
+          if [[ $secs -ge 3600 ]]; then
+            printf "%dh %dm %ds" $((secs/3600)) $(((secs%3600)/60)) $((secs%60))
+          elif [[ $secs -ge 60 ]]; then
+            printf "%dm %ds" $((secs/60)) $((secs%60))
+          else
+            printf "%ds" $secs
+          fi
+        }
+
+        TOTAL=$(jq '[.[].duration // 0] | add' /tmp/jobs.json)
+        TOTAL_FMT=$(format_duration $TOTAL)
+
+        # Header
+        cat >> $GITHUB_STEP_SUMMARY << EOF
+        # ${TITLE}
+
+        **Total time:** ${TOTAL_FMT}
+
+        ## Jobs
+
+        EOF
+
+        # Steps
+        jq -r '.[] | .conclusion + "|" + .name + "|" + (.duration // 0 | tostring)' \
+          /tmp/jobs.json | while IFS="|" read -r conclusion name duration; do
+          icon=$([[ "$conclusion" == "success" ]] && echo "✅" || echo "❌")
+          fmt=$(format_duration $duration)
+          echo "${icon} **${name}**: ${fmt}"
+        done >> $GITHUB_STEP_SUMMARY
+
+        # Outputs table
+        OUTPUT_COUNT=$(jq 'length' /tmp/report_outputs.json)
+        if [[ "$OUTPUT_COUNT" -gt 0 ]]; then
+          cat >> $GITHUB_STEP_SUMMARY << 'EOF'
+
+        ## Outputs
+
+        | Key | Value |
+        |-----|-------|
+        EOF
+
+          jq -r 'to_entries[] | "| " + .key + " | `" + .value + "` |"' \
+            /tmp/report_outputs.json >> $GITHUB_STEP_SUMMARY
+        fi
