@@ -16,7 +16,7 @@ variable "public_routes" {
 
 variable "auth_issuer" {
   description = "JWT issuer URL"
-  default     = "https://dev-oq5eot5o33s27xpo.us.auth0.com"
+  default     = "https://dev-oq5eot5o33s27xpo.us.auth0.com/"
 }
 
 variable "auth_audience" {
