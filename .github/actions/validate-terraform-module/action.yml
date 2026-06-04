@@ -1,0 +1,25 @@
+name: Validate Terraform Module
+description: Runs terraform init + validate for a given module
+
+inputs:
+  module_name:
+    description: Name (path) of the Terraform module
+    required: true
+  module_path:
+    description: Path to the Terraform module directory (defaults to module_name)
+
+runs:
+  using: composite
+  steps:
+    - name: Setup Terraform
+      uses: hashicorp/setup-terraform@v4
+
+    - name: Terraform Init
+      shell: bash
+      working-directory: ${{ inputs.module_path || inputs.module_name }}
+      run: terraform init -backend=false
+
+    - name: Terraform Validate
+      shell: bash
+      working-directory: ${{ inputs.module_path || inputs.module_name }}
+      run: terraform validate

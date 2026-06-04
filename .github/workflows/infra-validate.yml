@@ -1,0 +1,41 @@
+name: Validate Infrastructure
+
+on:
+  workflow_call:
+
+jobs:
+  discover-layers:
+    runs-on: ubuntu-latest
+    outputs:
+      layers: ${{ steps.list.outputs.layers }}
+    steps:
+      - uses: actions/checkout@v5
+      - name: List terraform layers
+        id: list
+        run: |
+          IGNORE=(".github" "scripts" "images" "example")
+
+          layers=()
+          for dir in */; do
+            name="${dir%/}"
+            skip=false
+            for ignored in "${IGNORE[@]}"; do
+              [[ "$name" == "$ignored" ]] && skip=true && break
+            done
+            $skip || layers+=("$name")
+          done
+
+          json=$(printf '%s\n' "${layers[@]}" | jq -R . | jq -sc .)
+          echo "layers=$json" >> "$GITHUB_OUTPUT"
+
+  validate:
+    needs: discover-layers
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        layer: ${{ fromJson(needs.discover-layers.outputs.layers) }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/validate-terraform-module
+        with:
+          module_name: ${{ matrix.layer }}

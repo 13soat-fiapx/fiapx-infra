@@ -1,0 +1,194 @@
+name: Apply Infrastructure
+
+on:
+  workflow_call:
+    inputs:
+      environment:
+        description: Deployment environment (dev|stg|prod)
+        required: true
+        type: string
+    secrets:
+      AWS_ACCESS_KEY_ID:
+        description: validate AWS Access Key ID to ensure "secrets inherit" was used by callers
+        required: true
+
+jobs:
+  shared:
+    runs-on: ubuntu-latest
+    concurrency: infra-shared-${{ inputs.environment }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: aws-actions/configure-aws-credentials@v6
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
+          aws-region: ${{ vars.AWS_REGION }}
+      - uses: ./.github/actions/apply-terraform-module
+        with:
+          environment: ${{ inputs.environment }}
+          module_name: shared
+
+  cr:
+    needs: shared
+    runs-on: ubuntu-latest
+    concurrency: infra-cr-${{ inputs.environment }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: aws-actions/configure-aws-credentials@v6
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
+          aws-region: ${{ vars.AWS_REGION }}
+      - uses: ./.github/actions/apply-terraform-module
+        with:
+          environment: ${{ inputs.environment }}
+          module_name: cr
+
+  database:
+    needs: shared
+    runs-on: ubuntu-latest
+    concurrency: infra-database-${{ inputs.environment }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: aws-actions/configure-aws-credentials@v6
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
+          aws-region: ${{ vars.AWS_REGION }}
+      - uses: ./.github/actions/apply-terraform-module
+        with:
+          environment: ${{ inputs.environment }}
+          module_name: database
+
+  messaging:
+    needs: shared
+    runs-on: ubuntu-latest
+    concurrency: infra-messaging-${{ inputs.environment }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: aws-actions/configure-aws-credentials@v6
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
+          aws-region: ${{ vars.AWS_REGION }}
+      - uses: ./.github/actions/apply-terraform-module
+        with:
+          environment: ${{ inputs.environment }}
+          module_name: messaging
+
+  storage:
+    needs: shared
+    runs-on: ubuntu-latest
+    concurrency: infra-storage-${{ inputs.environment }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: aws-actions/configure-aws-credentials@v6
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
+          aws-region: ${{ vars.AWS_REGION }}
+      - uses: ./.github/actions/apply-terraform-module
+        with:
+          environment: ${{ inputs.environment }}
+          module_name: storage
+
+  k8s:
+    needs: shared
+    runs-on: ubuntu-latest
+    concurrency: infra-k8s-${{ inputs.environment }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: aws-actions/configure-aws-credentials@v6
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
+          aws-region: ${{ vars.AWS_REGION }}
+      - uses: ./.github/actions/apply-terraform-module
+        with:
+          environment: ${{ inputs.environment }}
+          module_name: k8s
+          lock_timeout: 15m
+      - name: Update AWS Credentials for ESO
+        run: |
+          aws eks update-kubeconfig \
+            --name fiapx-${{ inputs.environment }}-cluster \
+            --region ${{ vars.AWS_REGION }}
+          kubectl create secret generic aws-credentials \
+            --namespace external-secrets \
+            --from-literal=access-key-id="${{ secrets.AWS_ACCESS_KEY_ID }}" \
+            --from-literal=secret-access-key="${{ secrets.AWS_SECRET_ACCESS_KEY }}" \
+            --from-literal=session-token="${{ secrets.AWS_SESSION_TOKEN }}" \
+            --dry-run=client \
+            --output yaml \
+          | kubectl annotate --local -f - \
+              "reflector.v1.k8s.emberstack.com/reflection-allowed=true" \
+              --overwrite -o yaml \
+          | kubectl apply -f -
+      - name: Create ClusterSecretStore
+        run: |
+          kubectl wait --for=condition=Ready pod --all -n external-secrets --timeout=120s
+          kubectl apply -f - <<EOF
+          apiVersion: external-secrets.io/v1
+          kind: ClusterSecretStore
+          metadata:
+            name: fiapx-aws-secrets
+          spec:
+            provider:
+              aws:
+                service: SecretsManager
+                region: ${{ vars.AWS_REGION }}
+                auth:
+                  secretRef:
+                    accessKeyIDSecretRef:
+                      name: aws-credentials
+                      namespace: external-secrets
+                      key: access-key-id
+                    secretAccessKeySecretRef:
+                      name: aws-credentials
+                      namespace: external-secrets
+                      key: secret-access-key
+                    sessionTokenSecretRef:
+                      name: aws-credentials
+                      namespace: external-secrets
+                      key: session-token
+          EOF
+
+  notifications:
+    needs: k8s
+    runs-on: ubuntu-latest
+    concurrency: infra-notifications-${{ inputs.environment }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: aws-actions/configure-aws-credentials@v6
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
+          aws-region: ${{ vars.AWS_REGION }}
+      - uses: ./.github/actions/apply-terraform-module
+        with:
+          environment: ${{ inputs.environment }}
+          module_name: notifications
+
+  gateway:
+    needs: k8s
+    runs-on: ubuntu-latest
+    concurrency: infra-gateway-${{ inputs.environment }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: aws-actions/configure-aws-credentials@v6
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
+          aws-region: ${{ vars.AWS_REGION }}
+      - uses: ./.github/actions/apply-terraform-module
+        with:
+          environment: ${{ inputs.environment }}
+          module_name: gateway
