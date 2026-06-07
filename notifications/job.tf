@@ -20,8 +20,47 @@ resource "kubernetes_manifest" "notifier_scaledjob" {
 
                 envFrom = [
                   {
-                    secretRef = {
-                      name = kubernetes_secret_v1.email.metadata[0].name
+                    configMapRef = {
+                      name = kubernetes_config_map_v1.notifier.metadata[0].name
+                    }
+                  }
+                ]
+
+                env = [
+                  {
+                    name = "EmailSenderOptions__SmtpServer"
+                    valueFrom = {
+                      secretKeyRef = {
+                        name = kubernetes_secret_v1.email.metadata[0].name
+                        key  = "host"
+                      }
+                    }
+                  },
+                  {
+                    name = "EmailSenderOptions__SmtpPort"
+                    valueFrom = {
+                      secretKeyRef = {
+                        name = kubernetes_secret_v1.email.metadata[0].name
+                        key  = "port"
+                      }
+                    }
+                  },
+                  {
+                    name = "EmailSenderOptions__SmtpUsername"
+                    valueFrom = {
+                      secretKeyRef = {
+                        name = kubernetes_secret_v1.email.metadata[0].name
+                        key  = "username"
+                      }
+                    }
+                  },
+                  {
+                    name = "EmailSenderOptions__SmtpPassword"
+                    valueFrom = {
+                      secretKeyRef = {
+                        name = kubernetes_secret_v1.email.metadata[0].name
+                        key  = "password"
+                      }
                     }
                   }
                 ]
@@ -36,7 +75,7 @@ resource "kubernetes_manifest" "notifier_scaledjob" {
         {
           type = "aws-sqs-queue"
           metadata = {
-            queueURL    = data.terraform_remote_state.messaging.outputs.queues_urls["video-status-changed"]
+            queueURL    = data.terraform_remote_state.messaging.outputs.queues_urls["video-processing-completed"]
             queueLength = "1"
             awsRegion   = "us-east-1"
           }
