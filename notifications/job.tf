@@ -49,7 +49,7 @@ resource "kubernetes_manifest" "notifier_scaledjob" {
                     name = "AwsCredentials__AccessKey"
                     valueFrom = {
                       secretKeyRef = {
-                        name = "aws-credentials"
+                        name = kubernetes_secret_v1.aws_credentials.metadata[0].name
                         key  = "access-key-id"
                       }
                     }
@@ -58,7 +58,7 @@ resource "kubernetes_manifest" "notifier_scaledjob" {
                     name = "AwsCredentials__SecretAccessKey"
                     valueFrom = {
                       secretKeyRef = {
-                        name = "aws-credentials"
+                        name = kubernetes_secret_v1.aws_credentials.metadata[0].name
                         key  = "secret-access-key"
                       }
                     }
@@ -67,7 +67,7 @@ resource "kubernetes_manifest" "notifier_scaledjob" {
                     name = "AwsCredentials__SessionToken"
                     valueFrom = {
                       secretKeyRef = {
-                        name = "aws-credentials"
+                        name = kubernetes_secret_v1.aws_credentials.metadata[0].name
                         key  = "session-token"
                       }
                     }
@@ -111,17 +111,17 @@ resource "kubernetes_manifest" "keda_trigger_auth" {
       secretTargetRef = [
         {
           parameter = "awsAccessKeyID"
-          name      = "aws-credentials"
+          name      = kubernetes_secret_v1.aws_credentials.metadata[0].name
           key       = "access-key-id"
         },
         {
           parameter = "awsSecretAccessKey"
-          name      = "aws-credentials"
+          name      = kubernetes_secret_v1.aws_credentials.metadata[0].name
           key       = "secret-access-key"
         },
         {
           parameter = "awsSessionToken"
-          name      = "aws-credentials"
+          name      = kubernetes_secret_v1.aws_credentials.metadata[0].name
           key       = "session-token"
         }
       ]

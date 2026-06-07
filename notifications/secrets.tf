@@ -19,5 +19,11 @@ resource "kubernetes_secret_v1" "aws_credentials" {
       "reflector.v1.k8s.emberstack.com/reflects" = "external-secrets/aws-credentials"
     }
   }
-}
 
+  lifecycle {
+    ignore_changes = [
+      metadata[0].annotations,
+      data
+    ]
+  }
+}
