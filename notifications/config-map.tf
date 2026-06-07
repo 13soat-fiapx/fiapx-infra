@@ -16,6 +16,9 @@ resource "kubernetes_config_map_v1" "notifier" {
     EmailSenderOptions__SenderInformation__Name    = "FIAP X"
     EmailSenderOptions__SenderInformation__Address = "postmaster@${var.email_domain}"
 
+    EmailContent__LogoUrl         = "${var.web_base_url}/logo_video.svg"
+    EmailContent__DownloadBaseUrl = "${var.web_base_url}/videos"
+
     AwsCredentials__UseLocalstack = "false"
 
     MessagingOptions__QueueNames__VideoProcessingCompleted = "${local.prefix}-video-processing-completed"
