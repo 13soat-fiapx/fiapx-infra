@@ -28,25 +28,7 @@ resource "kubernetes_manifest" "notifier_scaledjob" {
 
                 env = [
                   {
-                    name = "EmailSenderOptions__SmtpServer"
-                    valueFrom = {
-                      secretKeyRef = {
-                        name = kubernetes_secret_v1.email.metadata[0].name
-                        key  = "host"
-                      }
-                    }
-                  },
-                  {
-                    name = "EmailSenderOptions__SmtpPort"
-                    valueFrom = {
-                      secretKeyRef = {
-                        name = kubernetes_secret_v1.email.metadata[0].name
-                        key  = "port"
-                      }
-                    }
-                  },
-                  {
-                    name = "EmailSenderOptions__SmtpUsername"
+                    name = "EmailSenderOptions__UserName"
                     valueFrom = {
                       secretKeyRef = {
                         name = kubernetes_secret_v1.email.metadata[0].name
@@ -55,11 +37,38 @@ resource "kubernetes_manifest" "notifier_scaledjob" {
                     }
                   },
                   {
-                    name = "EmailSenderOptions__SmtpPassword"
+                    name = "EmailSenderOptions__Password"
                     valueFrom = {
                       secretKeyRef = {
                         name = kubernetes_secret_v1.email.metadata[0].name
                         key  = "password"
+                      }
+                    }
+                  },
+                  {
+                    name = "AwsCredentials__AccessKey"
+                    valueFrom = {
+                      secretKeyRef = {
+                        name = "aws-credentials"
+                        key  = "access-key-id"
+                      }
+                    }
+                  },
+                  {
+                    name = "AwsCredentials__SecretAccessKey"
+                    valueFrom = {
+                      secretKeyRef = {
+                        name = "aws-credentials"
+                        key  = "secret-access-key"
+                      }
+                    }
+                  },
+                  {
+                    name = "AwsCredentials__SessionToken"
+                    valueFrom = {
+                      secretKeyRef = {
+                        name = "aws-credentials"
+                        key  = "session-token"
                       }
                     }
                   }
@@ -80,8 +89,40 @@ resource "kubernetes_manifest" "notifier_scaledjob" {
             awsRegion   = "us-east-1"
           }
           authenticationRef = {
-            name = "${local.prefix}-keda-auth"
+            name = "keda-authentication"
           }
+        }
+      ]
+    }
+  }
+}
+
+resource "kubernetes_manifest" "keda_trigger_auth" {
+  manifest = {
+    apiVersion = "keda.sh/v1alpha1"
+    kind       = "TriggerAuthentication"
+
+    metadata = {
+      name      = "keda-authentication"
+      namespace = kubernetes_namespace_v1.notifications.metadata[0].name
+    }
+
+    spec = {
+      secretTargetRef = [
+        {
+          parameter = "awsAccessKeyID"
+          name      = "aws-credentials"
+          key       = "access-key-id"
+        },
+        {
+          parameter = "awsSecretAccessKey"
+          name      = "aws-credentials"
+          key       = "secret-access-key"
+        },
+        {
+          parameter = "awsSessionToken"
+          name      = "aws-credentials"
+          key       = "session-token"
         }
       ]
     }
