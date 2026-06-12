@@ -12,32 +12,12 @@ data "terraform_remote_state" "shared" {
   }
 }
 
-data "terraform_remote_state" "cr" {
-  backend = "s3"
-
-  config = {
-    bucket = "fiapx-tf-${data.aws_caller_identity.current.account_id}"
-    key    = "cr-${var.environment}.tfstate"
-    region = "us-east-1"
-  }
-}
-
 data "terraform_remote_state" "k8s" {
   backend = "s3"
 
   config = {
     bucket = "fiapx-tf-${data.aws_caller_identity.current.account_id}"
     key    = "k8s-${var.environment}.tfstate"
-    region = "us-east-1"
-  }
-}
-
-data "terraform_remote_state" "messaging" {
-  backend = "s3"
-
-  config = {
-    bucket = "fiapx-tf-${data.aws_caller_identity.current.account_id}"
-    key    = "messaging-${var.environment}.tfstate"
     region = "us-east-1"
   }
 }
