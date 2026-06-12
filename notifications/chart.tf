@@ -1,12 +1,8 @@
-resource "kubernetes_namespace_v1" "notifications" {
-  metadata {
-    name = "notifications"
-  }
-}
-
 resource "helm_release" "mailpit" {
   name      = "mailpit"
-  namespace = kubernetes_namespace_v1.notifications.metadata[0].name
+  namespace = "notifications"
+
+  create_namespace = true
 
   repository = "https://jouve.github.io/charts"
   chart      = "mailpit"

@@ -1,4 +1,4 @@
-name: Push to ECR and Deploy to EKS
+name: Push to ECR and Deploy Helm chart
 
 on:
   workflow_call:
@@ -15,6 +15,10 @@ on:
         description: Path to the Helm chart
         type: string
         default: ./k8s
+      additional-args:
+        description: Additional arguments to pass to the Helm
+        type: string
+        default: ""
 
 jobs:
   deploy:
@@ -78,4 +82,5 @@ jobs:
             --set app.name=${{ inputs.service-name }} \
             --set image.repository=$REPOSITORY_URI \
             --set image.tag=${{ github.sha }} \
-            --set app.env=${{ inputs.environment }}
+            --set app.env=${{ inputs.environment }} \
+            ${{ inputs.additional-args }}

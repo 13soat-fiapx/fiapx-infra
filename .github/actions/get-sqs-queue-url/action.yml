@@ -1,0 +1,36 @@
+name: Get SQS Queue URL
+description: Retrieves the URL of an SQS queue by name
+
+inputs:
+  queue-name:
+    description: SQS queue name (e.g. video-processing-completed)
+    required: true
+  environment:
+    description: Environment (dev|stg|prod)
+    required: true
+  aws-region:
+    description: AWS Region
+    default: us-east-1
+
+outputs:
+  queue-url:
+    description: The SQS queue URL
+    value: ${{ steps.get-queue-url.outputs.queue-url }}
+
+runs:
+  using: composite
+  steps:
+    - id: get-queue-url
+      shell: bash
+      run: |
+        URL=$(aws sqs get-queue-url \
+          --queue-name "fiapx-${{ inputs.environment }}-${{ inputs.queue-name }}" \
+          --region "${{ inputs.aws-region }}" \
+          --output text)
+
+        if [ $? -ne 0 ] || [ -z "$URL" ]; then
+          echo "::error::Queue '${{ inputs.queue-name }}' not found."
+          exit 1
+        fi
+
+        echo "queue-url=$URL" >> $GITHUB_OUTPUT
