@@ -24,6 +24,11 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
           aws-region: ${{ vars.AWS_REGION }}
+      - name: Create bucket for Terraform state
+        shell: bash
+        run: |
+          ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+          aws s3 mb s3://fiapx-tf-${ACCOUNT_ID} 2>/dev/null || echo "Bucket already exists"
       - uses: ./.github/actions/apply-terraform-module
         with:
           environment: ${{ inputs.environment }}
