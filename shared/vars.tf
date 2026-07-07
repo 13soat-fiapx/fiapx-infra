@@ -38,6 +38,14 @@ variable "vpc_cidr" {
   default = "10.0.0.0/16"
 }
 
+variable "cors_allowed_origins" {
+  type = list(string)
+  default = [
+    "http://localhost:8080",
+    "https://d2nyagk7gn75jo.cloudfront.net"
+  ]
+}
+
 locals {
   prefix           = "${var.project_name}-${var.environment}"
   environment_name = var.environment_map[var.environment]

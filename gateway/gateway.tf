@@ -1,6 +1,14 @@
 resource "aws_apigatewayv2_api" "api_gateway" {
   name          = "${local.prefix}-api"
   protocol_type = "HTTP"
+
+  cors_configuration {
+    allow_origins  = data.terraform_remote_state.shared.outputs.cors_allowed_origins
+    allow_methods  = ["GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"]
+    allow_headers  = ["Authorization", "Content-Type"]
+    expose_headers = ["ETag"]
+    max_age        = 3000
+  }
 }
 
 resource "aws_cloudwatch_log_group" "api_gateway" {
