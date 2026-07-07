@@ -33,6 +33,16 @@ resource "aws_apigatewayv2_route" "eks_proxy" {
   authorizer_id      = aws_apigatewayv2_authorizer.jwt.id
 }
 
+resource "aws_apigatewayv2_route" "eks_proxy_options" {
+  for_each = toset(var.services_prefix)
+
+  api_id    = aws_apigatewayv2_api.api_gateway.id
+  route_key = "OPTIONS /${each.value}/{proxy+}"
+  target    = "integrations/${aws_apigatewayv2_integration.eks_integration[each.key].id}"
+
+  authorization_type = "NONE"
+}
+
 resource "aws_apigatewayv2_integration" "eks_integration_public" {
   for_each = toset(var.public_routes)
 

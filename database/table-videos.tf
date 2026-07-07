@@ -10,6 +10,12 @@ module "videos_table" {
       key_schema = [
         { attribute_name = "userId", key_type = "HASH" },
       ]
+    },
+    {
+      name = "resultFileId-index"
+      key_schema = [
+        { attribute_name = "resultFileId", key_type = "HASH" },
+      ]
     }
   ]
 }

@@ -8,7 +8,7 @@ resource "aws_s3_bucket_cors_configuration" "artifacts" {
   bucket = aws_s3_bucket.artifacts.id
 
   cors_rule {
-    allowed_origins = var.cors_allowed_origins
+    allowed_origins = data.terraform_remote_state.shared.outputs.cors_allowed_origins
     allowed_methods = ["GET", "HEAD", "PUT"]
     allowed_headers = ["*"]
     expose_headers  = ["ETag"]
