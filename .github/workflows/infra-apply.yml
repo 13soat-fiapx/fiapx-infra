@@ -164,6 +164,28 @@ jobs:
                       key: session-token
           EOF
 
+  observability:
+    needs: k8s
+    runs-on: ubuntu-latest
+    concurrency: infra-observability-${{ inputs.environment }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: aws-actions/configure-aws-credentials@v6
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
+          aws-region: ${{ vars.AWS_REGION }}
+      - name: Create terraform.tfvars with Datadog API key
+        shell: bash
+        env:
+          DD_API_KEY: ${{ secrets.DD_API_KEY }}
+        run: printf 'datadog_api_key = "%s"\n' "$DD_API_KEY" > observability/terraform.tfvars
+      - uses: ./.github/actions/apply-terraform-module
+        with:
+          environment: ${{ inputs.environment }}
+          module_name: observability
+
   notifications:
     needs: k8s
     runs-on: ubuntu-latest

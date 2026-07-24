@@ -1,0 +1,3 @@
+# Copie este arquivo para terraform.tfvars (ignorado pelo git) e informe a API key.
+# A key fica em: Datadog => Organization Settings => API Keys
+datadog_api_key = "<datadog-api-key>"

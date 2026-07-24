@@ -11,7 +11,9 @@ aws s3 mb s3://$bucketName --region us-east-1 | Out-Null
 # subir infraestrutura pelo Terraform
 Write-Host
 Write-Host -ForegroundColor Yellow "Updating infrastructure for environment '$environment'..."
-  
+
+helm repo update
+
 function InitializeLayer {
   param([Parameter(Mandatory)][string]$name)
 
