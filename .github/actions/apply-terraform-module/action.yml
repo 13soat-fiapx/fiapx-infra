@@ -29,6 +29,4 @@ runs:
       name: Apply Terraform module
       shell: bash
       working-directory: ${{ inputs.module_path || inputs.module_name }}
-      env:
-        TF_VAR_dd_api_key: ${{ inputs.dd_api_key }}
       run: terraform apply -var="environment=${{ inputs.environment }}" -auto-approve -lock-timeout=${{ inputs.lock_timeout }}
