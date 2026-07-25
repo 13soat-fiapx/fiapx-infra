@@ -1,0 +1,86 @@
+name: Run Bun tests
+
+on:
+  workflow_call:
+    inputs:
+      enable_sonar:
+        description: Enable SonarQube analysis in this run.
+        required: false
+        type: boolean
+        default: false
+      sonar_project_key:
+        description: SonarQube project key for the caller repository.
+        required: false
+        type: string
+        default: ""
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Cache Bun dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.bun/install/cache
+          key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock', 'bun.lockb') }}
+          restore-keys: |
+            ${{ runner.os }}-bun-
+
+      - name: Install dependencies
+        run: bun ci
+
+      - name: Validate SonarQube configuration
+        if: inputs.enable_sonar
+        env:
+          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_PROJECT_KEY: ${{ inputs.sonar_project_key }}
+        run: |
+          if [ -z "$SONAR_PROJECT_KEY" ] || [ -z "$SONAR_HOST_URL" ] || [ -z "$SONAR_TOKEN" ]; then
+            echo "SonarQube enabled, but SONAR_PROJECT_KEY and/or secrets SONAR_HOST_URL/SONAR_TOKEN were not defined."
+            exit 1
+          fi
+
+      - name: Prepare test results directory
+        run: mkdir -p test-results
+
+
+      - name: Test
+        if: ${{ !inputs.enable_sonar }}
+        run: bun test tests --reporter=junit --reporter-outfile=./test-results/bun-junit.xml
+
+      - name: Test with coverage
+        if: inputs.enable_sonar
+        run: bun test tests --coverage --reporter=junit --reporter-outfile=./test-results/bun-junit.xml
+
+      - name: SonarQube scan
+        if: inputs.enable_sonar
+        uses: SonarSource/sonarqube-scan-action@v8
+        env:
+          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        with:
+          args: >
+            -Dsonar.projectKey=${{ inputs.sonar_project_key }}
+            -Dsonar.sources=src
+            -Dsonar.tests=tests
+            -Dsonar.javascript.lcov.reportPaths=coverage/lcov.info
+            -Dsonar.qualitygate.wait=true
+
+      - name: Publish test results
+        uses: dorny/test-reporter@v3.0.0
+        if: success() || failure()
+        with:
+          name: Bun Tests
+          path: test-results/bun-junit.xml
+          reporter: java-junit
