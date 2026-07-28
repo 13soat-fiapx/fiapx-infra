@@ -17,9 +17,12 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      checks: write
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v5
         with:
           fetch-depth: 0
 
@@ -78,9 +81,8 @@ jobs:
             -Dsonar.qualitygate.wait=true
 
       - name: Publish test results
-        uses: dorny/test-reporter@v3
+        uses: mikepenz/action-junit-report@v6
         if: success() || failure()
         with:
-          name: Bun Tests
-          path: test-results/bun-junit.xml
-          reporter: java-junit
+          check_name: Bun Tests
+          report_paths: test-results/bun-junit.xml
